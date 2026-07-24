@@ -410,13 +410,21 @@ Each item MUST have:
 app.use("/api", apiRouter);
 app.use("/", apiRouter);
 
-// Catch-all for unknown /api/* endpoints - guarantee JSON response instead of HTML SPA fallback
-app.all("/api/*", (req, res) => {
-  res.status(404).json({ error: `API endpoint ${req.path} not found.` });
+// Catch-all for unknown /api and /api/* endpoints - guarantee JSON response instead of HTML SPA fallback
+app.all(["/api", "/api/*"], (req, res) => {
+  res.status(404).json({ error: `API endpoint ${req.method} ${req.path} not found.` });
+});
+
+// Fallback for any unhandled POST/PUT/DELETE/OPTIONS requests - return JSON 404 instead of falling through to HTML
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return res.status(404).json({ error: `Endpoint ${req.method} ${req.path} not found.` });
+  }
+  next();
 });
 
 // Global API error handler ensuring JSON response
-app.use("/api", (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("API error handler caught:", err);
   if (res.headersSent) {
     return next(err);
