@@ -4,6 +4,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { ChatMessage, DifficultyLevel, ToneStyle } from '../types';
 import { X, Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
+import { API_URL } from "../config";
 
 interface FollowupDrawerProps {
   sourceText: string;
@@ -60,7 +61,7 @@ export const FollowupDrawer: React.FC<FollowupDrawerProps> = ({
     setIsStreaming(true);
 
     try {
-      const response = await fetch('/api/followup', {
+      const response = await fetch(`${API_URL}/api/followup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

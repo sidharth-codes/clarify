@@ -2,7 +2,11 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+/// <reference types="vite/client" />
+import { API_URL } from "./config";
 
+const API = import.meta.env.VITE_API_URL || "";
+  
 import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { InputPanel } from './components/InputPanel';
@@ -57,7 +61,7 @@ export default function App() {
         const formData = new FormData();
         formData.append('file', file);
 
-        const res = await fetch('/api/parse-pdf', {
+        const res = await fetch(`${API}/api/parse-pdf`, {
           method: 'POST',
           body: formData,
         });
@@ -157,7 +161,7 @@ export default function App() {
     setFlashcardsData(null);
 
     try {
-      const response = await fetch('/api/explain', {
+      const response = await fetch(`${API}/api/explain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -215,7 +219,7 @@ export default function App() {
     setIsQuizLoading(true);
 
     try {
-      const res = await fetch('/api/quiz', {
+      const res = await fetch(`${API}/api/quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -245,7 +249,7 @@ export default function App() {
     setIsFlashcardsLoading(true);
 
     try {
-      const res = await fetch('/api/flashcards', {
+      const res = await fetch(`${API}/api/flashcards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
