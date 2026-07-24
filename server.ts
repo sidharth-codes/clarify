@@ -394,6 +394,11 @@ Each item MUST have:
   }
 });
 
+// Catch-all for unknown /api/* endpoints - guarantee JSON response instead of HTML SPA fallback
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: `API endpoint ${req.path} not found.` });
+});
+
 // Global API error handler ensuring JSON response
 app.use("/api", (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("API error handler caught:", err);

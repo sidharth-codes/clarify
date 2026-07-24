@@ -42,7 +42,7 @@ export default function App() {
   const [showFollowupDrawer, setShowFollowupDrawer] = useState<boolean>(false);
   const [showSampleModal, setShowSampleModal] = useState<boolean>(false);
 
-  // PDF Upload Handler
+  // PDF Upload Handler with client-side fallback
   const handlePdfSelect = async (file: File) => {
     setPdfFile(file);
     setIsPdfLoading(true);
@@ -50,31 +50,78 @@ export default function App() {
     setPdfInfo(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      let extracted: { text: string; numPages: number; wordCount: number } | null = null;
 
-      const res = await fetch('/api/parse-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const rawText = await res.text();
-      let data: any = {};
+      // 1. Attempt server-side PDF parsing endpoint first
       try {
-        data = JSON.parse(rawText);
-      } catch (jsonErr) {
-        throw new Error(`Server returned an invalid non-JSON response (${res.status}). Please try again.`);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/parse-pdf', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const rawText = await res.text();
+        if (res.ok && rawText.startsWith('{')) {
+          const data = JSON.parse(rawText);
+          if (data.success && data.text) {
+            extracted = {
+              text: data.text,
+              numPages: data.numPages || 1,
+              wordCount: data.wordCount || data.text.split(/\s+/).filter(Boolean).length,
+            };
+          }
+        }
+      } catch (serverErr) {
+        console.warn('Server PDF parse endpoint failed, falling back to browser extraction:', serverErr);
       }
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to extract text from PDF.');
+      // 2. Client-side browser extraction fallback if server endpoint was unreachable, 404, or failed
+      if (!extracted) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdfjsLib = await import('pdfjs-dist');
+          if (pdfjsLib.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.10.38'}/pdf.worker.min.mjs`;
+          }
+
+          const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+          const pdfDoc = await loadingTask.promise;
+          let fullText = '';
+
+          for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const page = await pdfDoc.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ');
+            fullText += pageText + '\n\n';
+          }
+
+          const cleanedText = fullText
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            .replace(/\r\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+
+          if (cleanedText) {
+            extracted = {
+              text: cleanedText,
+              numPages: pdfDoc.numPages,
+              wordCount: cleanedText.split(/\s+/).filter(Boolean).length,
+            };
+          }
+        } catch (clientErr) {
+          console.error('Browser PDF extraction fallback error:', clientErr);
+        }
       }
 
-      setPdfInfo({
-        text: data.text,
-        numPages: data.numPages,
-        wordCount: data.wordCount,
-      });
+      if (!extracted || !extracted.text) {
+        throw new Error('Failed to extract readable text from PDF. The PDF may be image-only or password protected.');
+      }
+
+      setPdfInfo(extracted);
     } catch (err: any) {
       console.error('PDF Upload Error:', err);
       setPdfError(err.message || 'Error processing PDF document.');
