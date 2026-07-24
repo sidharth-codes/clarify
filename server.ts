@@ -37,9 +37,10 @@ function getGenAIClient(): GoogleGenAI {
 }
 
 // ------------------- API ROUTES ------------------- //
+const apiRouter = express.Router();
 
 // 1. PDF Parsing Endpoint
-app.post("/api/parse-pdf", (req, res, next) => {
+apiRouter.post(["/parse-pdf", "/api/parse-pdf"], (req, res, next) => {
   upload.single("file")(req, res, (err) => {
     if (err) {
       console.error("Multer error during PDF upload:", err);
@@ -125,7 +126,7 @@ app.post("/api/parse-pdf", (req, res, next) => {
 });
 
 // 2. Stream Explanation Endpoint (SSE)
-app.post("/api/explain", async (req, res) => {
+apiRouter.post(["/explain", "/api/explain"], async (req, res) => {
   const { text, difficulty, tone, customFocus } = req.body;
 
   if (!text || typeof text !== "string" || !text.trim()) {
@@ -211,7 +212,7 @@ REQUIREMENTS FOR YOUR RESPONSE:
 });
 
 // 3. Follow-Up Q&A Endpoint (SSE Stream)
-app.post("/api/followup", async (req, res) => {
+apiRouter.post(["/followup", "/api/followup"], async (req, res) => {
   const { sourceText, explanation, history, question, difficulty, tone } = req.body;
 
   if (!question || typeof question !== "string") {
@@ -281,7 +282,7 @@ Provide a clear, helpful, direct answer tailored to the target audience level ($
 });
 
 // 4. Generate Quiz Endpoint
-app.post("/api/quiz", async (req, res) => {
+apiRouter.post(["/quiz", "/api/quiz"], async (req, res) => {
   const { sourceText, explanationText, difficulty } = req.body;
 
   try {
@@ -341,7 +342,7 @@ Each question object MUST have:
 });
 
 // 5. Generate Flashcards Endpoint
-app.post("/api/flashcards", async (req, res) => {
+apiRouter.post(["/flashcards", "/api/flashcards"], async (req, res) => {
   const { sourceText, explanationText } = req.body;
 
   try {
@@ -393,6 +394,10 @@ Each item MUST have:
     return res.status(500).json({ error: error?.message || "Failed to generate flashcards." });
   }
 });
+
+// Mount the apiRouter at both /api and /
+app.use("/api", apiRouter);
+app.use("/", apiRouter);
 
 // Catch-all for unknown /api/* endpoints - guarantee JSON response instead of HTML SPA fallback
 app.all("/api/*", (req, res) => {
