@@ -42,7 +42,7 @@ app.use((req, res, next) => {
 function getGenAIClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is missing.");
+    throw new Error("GEMINI_API_KEY environment variable is missing on server. Please add GEMINI_API_KEY in your hosting platform dashboard.");
   }
   return new GoogleGenAI({
     apiKey,
@@ -153,9 +153,12 @@ apiRouter.post(["/explain", "/api/explain"], async (req, res) => {
 
   // Set up SSE headers
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
 
   try {
     const ai = getGenAIClient();
@@ -238,8 +241,12 @@ apiRouter.post(["/followup", "/api/followup"], async (req, res) => {
   }
 
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
 
   try {
     const ai = getGenAIClient();

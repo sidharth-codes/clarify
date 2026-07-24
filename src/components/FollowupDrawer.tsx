@@ -74,24 +74,46 @@ export const FollowupDrawer: React.FC<FollowupDrawerProps> = ({
         }),
       });
 
-      if (!response.ok || !response.body) {
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!response.ok) {
+        let errMessage = `Server error (${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData.error) errMessage = errData.error;
+        } catch {
+          const text = await response.text();
+          if (text) errMessage = text.slice(0, 300);
+        }
+        throw new Error(errMessage);
+      }
+
+      if (contentType.includes('text/html')) {
+        throw new Error('Follow-up endpoint returned HTML instead of SSE stream.');
+      }
+
+      if (!response.body) {
         throw new Error('Failed to connect to follow-up stream.');
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let accumulatedText = '';
+      let buffer = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunkStr = decoder.decode(value, { stream: true });
-        const lines = chunkStr.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '').trim();
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6).trim();
             if (dataStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(dataStr);

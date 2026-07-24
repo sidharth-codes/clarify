@@ -172,24 +172,46 @@ export default function App() {
         }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error('Failed to start streaming explanation.');
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!response.ok) {
+        let errMessage = `Server error (${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData.error) errMessage = errData.error;
+        } catch {
+          const text = await response.text();
+          if (text) errMessage = text.slice(0, 300);
+        }
+        throw new Error(errMessage);
+      }
+
+      if (contentType.includes('text/html')) {
+        throw new Error('API endpoint returned HTML page instead of SSE stream. Please ensure GEMINI_API_KEY is configured in your hosting environment variables.');
+      }
+
+      if (!response.body) {
+        throw new Error('Failed to open streaming response body from server.');
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let accumulated = '';
+      let buffer = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '').trim();
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6).trim();
             if (dataStr === '[DONE]') break;
             try {
               const parsed = JSON.parse(dataStr);
@@ -200,10 +222,27 @@ export default function App() {
                 setExplanationText((prev) => prev + `\n\n**Error:** ${parsed.error}`);
               }
             } catch (e) {
-              // Ignore partial json parse errors in stream
+              console.warn('JSON parse warning in stream:', e);
             }
           }
         }
+      }
+
+      if (buffer.trim().startsWith('data: ')) {
+        const dataStr = buffer.trim().slice(6).trim();
+        if (dataStr !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.text) {
+              accumulated += parsed.text;
+              setExplanationText(accumulated);
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!accumulated) {
+        throw new Error('Received empty explanation from server. Please verify GEMINI_API_KEY in your hosting environment settings.');
       }
     } catch (error: any) {
       console.error('Streaming error:', error);
@@ -228,6 +267,11 @@ export default function App() {
           difficulty,
         }),
       });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Server returned HTML instead of JSON. Ensure GEMINI_API_KEY is configured in your hosting environment.');
+      }
 
       const data = await res.json();
       if (!res.ok || !data.quiz) {
@@ -257,6 +301,11 @@ export default function App() {
           explanationText,
         }),
       });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Server returned HTML instead of JSON. Ensure GEMINI_API_KEY is configured in your hosting environment.');
+      }
 
       const data = await res.json();
       if (!res.ok || !data.flashcards) {
