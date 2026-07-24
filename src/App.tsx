@@ -58,7 +58,14 @@ export default function App() {
         body: formData,
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch (jsonErr) {
+        throw new Error(`Server returned an invalid non-JSON response (${res.status}). Please try again.`);
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to extract text from PDF.');
       }

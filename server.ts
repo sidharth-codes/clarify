@@ -40,18 +40,60 @@ function getGenAIClient(): GoogleGenAI {
 // ------------------- API ROUTES ------------------- //
 
 // 1. PDF Parsing Endpoint
-app.post("/api/parse-pdf", upload.single("file"), async (req, res) => {
+app.post("/api/parse-pdf", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      console.error("Multer error during PDF upload:", err);
+      return res.status(400).json({ error: `File upload error: ${err.message || "Invalid file"}` });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No PDF file uploaded" });
     }
 
     const dataBuffer = req.file.buffer;
-    // Call pdfParse on buffer
-    const parsed = await pdfParse(dataBuffer);
-    
+    let extractedText = "";
+    let numPages = 1;
+
+    // Try pdf-parse library first
+    try {
+      const parseFn = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default;
+      if (typeof parseFn === "function") {
+        const parsed = await parseFn(dataBuffer);
+        extractedText = (parsed.text || "").trim();
+        if (parsed.numpages) numPages = parsed.numpages;
+      }
+    } catch (parseErr) {
+      console.warn("pdf-parse library failed, attempting Gemini PDF OCR fallback:", parseErr);
+    }
+
+    // Fallback to Gemini multimodal OCR/text extraction if pdf-parse failed or returned no text
+    if (!extractedText && process.env.GEMINI_API_KEY) {
+      try {
+        const ai = getGenAIClient();
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              inlineData: {
+                mimeType: "application/pdf",
+                data: dataBuffer.toString("base64")
+              }
+            },
+            "Extract all text, sections, and formulas from this PDF document. Output only the extracted plain text content."
+          ]
+        });
+        extractedText = (response.text || "").trim();
+      } catch (geminiErr) {
+        console.error("Gemini PDF extraction error:", geminiErr);
+      }
+    }
+
     // Clean text by stripping non-printable characters while preserving paragraph breaks
-    const cleanedText = (parsed.text || "")
+    const cleanedText = (extractedText || "")
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
       .replace(/\r\n/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
@@ -64,7 +106,7 @@ app.post("/api/parse-pdf", upload.single("file"), async (req, res) => {
     return res.json({
       success: true,
       text: cleanedText,
-      numPages: parsed.numpages || 1,
+      numPages,
       charCount: cleanedText.length,
       wordCount: cleanedText.split(/\s+/).filter(Boolean).length
     });
@@ -346,6 +388,17 @@ Each item MUST have:
   }
 });
 
+// Global API error handler ensuring JSON response
+app.use("/api", (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("API error handler caught:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err?.status || 500).json({
+    error: err?.message || "An unexpected error occurred processing your API request."
+  });
+});
+
 // ------------------- VITE / STATIC SERVING ------------------- //
 async function setupServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -367,4 +420,8 @@ async function setupServer() {
   });
 }
 
-setupServer();
+if (process.env.VERCEL !== "1") {
+  setupServer();
+}
+
+export default app;
