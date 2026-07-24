@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #F5F5F5;
+    color: #1A1A1A;
+  }
+  code, pre, kbd {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Custom minimal scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.8);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+/* Markdown styling inside output container (Clean Minimalism) */
+.markdown-body h1 {
+  @apply text-2xl font-light tracking-tight text-slate-900 mb-4 pb-2 border-b border-slate-200 mt-6 first:mt-0;
+}
+.markdown-body h2 {
+  @apply text-xl font-semibold text-slate-900 mb-3 mt-6 flex items-center gap-2 tracking-tight;
+}
+.markdown-body h3 {
+  @apply text-lg font-medium text-slate-800 mb-2 mt-4;
+}
+.markdown-body p {
+  @apply text-slate-700 leading-relaxed mb-4 text-base font-normal;
+}
+.markdown-body ul {
+  @apply list-disc list-inside space-y-2 mb-4 text-slate-700 pl-2;
+}
+.markdown-body ol {
+  @apply list-decimal list-inside space-y-2 mb-4 text-slate-700 pl-2;
+}
+.markdown-body li {
+  @apply leading-relaxed;
+}
+.markdown-body blockquote {
+  @apply border-l-4 border-indigo-600 bg-indigo-50/60 px-4 py-3 my-4 rounded-r-xl text-indigo-900 italic font-medium;
+}
+.markdown-body code:not(pre code) {
+  @apply bg-slate-100 text-indigo-700 px-1.5 py-0.5 rounded-md text-sm font-mono border border-slate-200;
+}
+.markdown-body pre {
+  @apply bg-slate-900 text-slate-100 border border-slate-800 p-5 rounded-2xl my-4 overflow-x-auto text-sm shadow-sm;
+}
+.markdown-body strong {
+  @apply text-slate-900 font-semibold;
+}
+.markdown-body table {
+  @apply w-full text-left border-collapse my-4 text-sm;
+}
+.markdown-body th {
+  @apply bg-slate-100 text-slate-800 px-4 py-2.5 border border-slate-200 font-semibold;
+}
+.markdown-body td {
+  @apply border border-slate-200 px-4 py-2.5 text-slate-700 bg-white;
+}
+

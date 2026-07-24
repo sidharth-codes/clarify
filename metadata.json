@@ -1,0 +1,6 @@
+{
+  "name": "ConceptCraft AI Explainer",
+  "description": "Interactive AI concept explainer with real-time SSE streaming, PDF document parsing, audience level and tone presets, quiz generator, and follow-up Q&A.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
