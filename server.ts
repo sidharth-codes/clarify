@@ -1,8 +1,7 @@
 import express from "express";
 import path from "path";
 import multer from "multer";
-import * as pdfParseModule from "pdf-parse";
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+import { PDFParse } from "pdf-parse";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -60,11 +59,18 @@ app.post("/api/parse-pdf", (req, res, next) => {
 
     // Try pdf-parse library first
     try {
-      const parseFn = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default;
-      if (typeof parseFn === "function") {
-        const parsed = await parseFn(dataBuffer);
-        extractedText = (parsed.text || "").trim();
-        if (parsed.numpages) numPages = parsed.numpages;
+      if (PDFParse) {
+        const uint8Array = new Uint8Array(dataBuffer);
+        const parser = new PDFParse(uint8Array);
+        const parsed = await parser.getText();
+        if (parsed) {
+          extractedText = (parsed.text || "").trim();
+          if (parsed.total) {
+            numPages = parsed.total;
+          } else if (Array.isArray(parsed.pages)) {
+            numPages = parsed.pages.length;
+          }
+        }
       }
     } catch (parseErr) {
       console.warn("pdf-parse library failed, attempting Gemini PDF OCR fallback:", parseErr);
