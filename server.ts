@@ -20,7 +20,7 @@ const upload = multer({
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
-// CORS middleware
+// CORS & Vercel request path normalization middleware
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -28,6 +28,13 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+
+  // Handle Vercel serverless function path rewrites
+  const matchedPath = req.headers["x-matched-path"] || req.headers["x-invoke-path"];
+  if (typeof matchedPath === "string" && matchedPath.startsWith("/api/")) {
+    req.url = matchedPath;
+  }
+
   next();
 });
 
